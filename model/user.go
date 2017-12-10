@@ -1,9 +1,9 @@
 package model
 
 type User struct {
-	username 	string 	`json:"username"`
-	fname		string	`json:"fname"`
-	lname		string	`json:"lname"`
-	email		string	`json:"email"`
-	cell		string	`json:"cell"`
+	Username 	string 	`json:"username"`
+	Fname		string	`json:"fname"`
+	Lname		string	`json:"lname"`
+	Email		string	`json:"email"`
+	Cell		string	`json:"cell"`
 }
