@@ -27,6 +27,14 @@ func GetTruck(w http.ResponseWriter, r *http.Request) {
 	// TODO
 }
 
+func CreateTruck(w http.ResponseWriter, r *http.Request) {
+	// TODO
+}
+
+func UpdateTruck(w http.ResponseWriter, r *http.Request) {
+	// TODO
+}
+
 func DeleteTruck(w http.ResponseWriter, r *http.Request) {
 	// TODO
 }

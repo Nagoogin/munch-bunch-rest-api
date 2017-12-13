@@ -2,14 +2,16 @@ package main
 
 import (
 	"fmt"
-	"github.com/gorilla/mux"
-	"github.com/dimiro1/health"
-	"github.com/dimiro1/health/db"
-	"github.com/dimiro1/health/url"
-	"github.com/nagoogin/munch-bunch-rest-api/handler"
 	"log"
 	"net/http"
 	"database/sql"
+	"os"
+
+	"github.com/gorilla/mux"
+	// "github.com/dimiro1/health"
+	// "github.com/dimiro1/health/db"
+	// "github.com/dimiro1/health/url"
+	// "github.com/nagoogin/munch-bunch-rest-api/handler"
 
 	_ "github.com/lib/pq"
 )
@@ -19,43 +21,61 @@ const (
 	HOST		= "localhost"
 	PORT		= 5432
 	USER		= "kevinnguyen"
-	DBNAME		= "kevinnguyen"
+	DBNAME		= "munchbunch"
 )
 
-func main() {
+type App struct {
+	Router 	*mux.Router
+	DB 		*sql.DB
+}
+
+func (a *App) Initialize(user, password, dbname string) {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s dbname=%s sslmode=disable",
     HOST, PORT, USER, DBNAME)
 
-	// Open connection to PSQL DB using info
-    database, err := sql.Open("postgres", psqlInfo)  
+	var err error
+    a.DB, err = sql.Open("postgres", psqlInfo)  
 	if err != nil {  
 	  log.Fatal(err)
 	}
-	defer database.Close()
 
-	// Test connection to PSQL DB
-	err = database.Ping()  
-	if err != nil {  
-	  log.Fatal(err)
-	}
-	fmt.Println("Successfully opened connection")
+	a.Router = mux.NewRouter();
+}
 
-	psqlChecker := db.NewPostgreSQLChecker(database)
+func (a *App) Run(addr string) {
+	log.Fatal(http.ListenAndServe(":8080", a.Router))
+}
 
-	r := mux.NewRouter()
-	r.Path("/api/v1").HandlerFunc(handler.StatusHandler)
+func main() {
+	a := App{}
+    a.Initialize(
+        os.Getenv("APP_DB_USERNAME"),
+        os.Getenv("APP_DB_PASSWORD"),
+        os.Getenv("APP_DB_NAME"))
 
-	s := r.PathPrefix("/api/v1").Subrouter()
+    a.Run(":8080")
 
-	healthHandler := health.NewHandler()
-	healthHandler.AddChecker("api", url.NewChecker("http://localhost:8080/api/v1"))
-	healthHandler.AddChecker("db", psqlChecker)
+	// // Test connection to PSQL DB
+	// err = database.Ping()  
+	// if err != nil {  
+	//   log.Fatal(err)
+	// }
+	// fmt.Println("Successfully opened connection")
 
-	s.Methods("GET").Path("/trucks").HandlerFunc(handler.GetTrucks)
-	s.Methods("GET").Path("/trucks/{name}").HandlerFunc(handler.GetTruck)
-	s.Methods("DELETE").Path("/trucks/{name}").HandlerFunc(handler.DeleteTruck)
+	// psqlChecker := db.NewPostgreSQLChecker(database)
 
-	s.Path("/health").Handler(healthHandler)
+	// r := mux.NewRouter()
+	// r.Path("/api/v1").HandlerFunc(handler.StatusHandler)
 
-	log.Fatal(http.ListenAndServe(":8080", r))
+	// s := r.PathPrefix("/api/v1").Subrouter()
+
+	// healthHandler := health.NewHandler()
+	// healthHandler.AddChecker("api", url.NewChecker("http://localhost:8080/api/v1"))
+	// healthHandler.AddChecker("db", psqlChecker)
+
+	// s.Methods("GET").Path("/trucks").HandlerFunc(handler.GetTrucks)
+	// s.Methods("GET").Path("/trucks/{name}").HandlerFunc(handler.GetTruck)
+	// s.Methods("DELETE").Path("/trucks/{name}").HandlerFunc(handler.DeleteTruck)
+
+	// s.Path("/health").Handler(healthHandler)
 }
