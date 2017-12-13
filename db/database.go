@@ -54,7 +54,7 @@ func (t *Truck) CreateTruck(db *sql.DB) error {
 }
 
 func (t *Truck) UpdateTruck(db *sql.DB) error {
-	_, err := db.Exec("UPDATE trucks SET name=$1 WHERE id=$3",
+	_, err := db.Exec("UPDATE trucks SET name=$1 WHERE id=$2",
 		t.Name, t.ID)
 
 	return err

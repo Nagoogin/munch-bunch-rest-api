@@ -51,6 +51,10 @@ func (a *App) Initialize(user, password, dbname string) {
 func (a *App) InitializeRoutes() {
 	a.Router.Path("/api/v1").HandlerFunc(handler.StatusHandler)
 	a.Subrouter.Methods("GET").Path("/truck/{id:[0-9]+}").HandlerFunc(a.getTruck)
+	a.Subrouter.Methods("GET").Path("/trucks").HandlerFunc(a.getTrucks)
+	a.Subrouter.Methods("POST").Path("/truck").HandlerFunc(a.createTruck)
+	a.Subrouter.Methods("PUT").Path("/truck/{id:[0-9]+}").HandlerFunc(a.updateTruck)
+	a.Subrouter.Methods("DELETE").Path("/truck/{id:[0-9]+}").HandlerFunc(a.deleteTruck)
 }
 
 func (a *App) Run(addr string) {
@@ -88,6 +92,86 @@ func (a *App) getTruck(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondWithJSON(w, http.StatusOK, t)
+}
+
+func (a *App) getTrucks(w http.ResponseWriter, r *http.Request) {
+	count, _ := strconv.Atoi(r.FormValue("count"))
+	start, _ := strconv.Atoi(r.FormValue("start"))
+
+	if count > 10 || count < 1 {
+		count = 10
+	}
+
+	if start < 0 {
+		start = 0
+	}
+
+	trucks, err := db.GetTrucks(a.DB, start, count)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, trucks)
+}
+
+func (a *App) createTruck(w http.ResponseWriter, r *http.Request) {
+	var t db.Truck
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&t); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+	defer r.Body.Close()
+
+	if err := t.CreateTruck(a.DB); err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusCreated, t)
+}
+
+func (a *App) updateTruck(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid product ID")
+		return
+	}
+
+	var t db.Truck
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&t); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+	defer r.Body.Close()
+	
+	t.ID = id
+	if err := t.UpdateTruck(a.DB); err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, t)
+}
+
+func (a *App) deleteTruck(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid product ID")
+		return
+	}
+
+	t := db.Truck{ID: id}
+	if err := t.DeleteTruck(a.DB); err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]string{"result": "success"})
 }
 
 func main() {

@@ -68,7 +68,7 @@ func TestMain(m *testing.M) {
 func TestEmptyTable(t *testing.T) {
 	clearTable()
 
-	req, _ := http.NewRequest("GET", "/trucks", nil)
+	req, _ := http.NewRequest("GET", "/api/v1/trucks", nil)
 	response := executeRequest(req)
 
 	checkResponseCode(t, http.StatusOK, response.Code)
@@ -81,7 +81,7 @@ func TestEmptyTable(t *testing.T) {
 func TestGetNonExistentTruck(t *testing.T) {
 	clearTable()
 
-	req, _ := http.NewRequest("GET", "/trucks/1", nil)
+	req, _ := http.NewRequest("GET", "/api/v1/truck/1", nil)
 	response := executeRequest(req)
 
 	checkResponseCode(t, http.StatusNotFound, response.Code)
@@ -117,7 +117,7 @@ func TestCreateTruck(t *testing.T) {
 	clearTable()
 
 	payload := []byte(`{"name":"test truck"}`)
-	req, _ := http.NewRequest("POST", "/truck", bytes.NewBuffer(payload))
+	req, _ := http.NewRequest("POST", "/api/v1/truck", bytes.NewBuffer(payload))
 	response := executeRequest(req)
 
 	checkResponseCode(t, http.StatusCreated, response.Code)
@@ -138,14 +138,14 @@ func TestUpdateTruck(t *testing.T) {
 	clearTable()
 	addTrucks(1)
 
-	req, _ := http.NewRequest("GET", "/truck/1", nil)
+	req, _ := http.NewRequest("GET", "/api/v1/truck/1", nil)
 	response := executeRequest(req)
 	var originalTruck map[string]interface{}
 	json.Unmarshal(response.Body.Bytes(), &originalTruck)
 
 	payload := []byte(`{"name":"Updated truck 1"}`)
 
-	req, _ = http.NewRequest("PUT", "/truck/1", bytes.NewBuffer(payload))
+	req, _ = http.NewRequest("PUT", "/api/v1/truck/1", bytes.NewBuffer(payload))
 	response = executeRequest(req)
 
 	checkResponseCode(t, http.StatusOK, response.Code)
@@ -166,15 +166,15 @@ func TestDeleteTruck(t *testing.T) {
 	clearTable()
 	addTrucks(1)
 
-	req, _ := http.NewRequest("GET", "/truck/1", nil)
+	req, _ := http.NewRequest("GET", "/api/v1/truck/1", nil)
 	response := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, response.Code)
 
-	req, _ = http.NewRequest("DELETE", "/truck/1", nil)
+	req, _ = http.NewRequest("DELETE", "/api/v1/truck/1", nil)
 	response = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, response.Code)
 
-	req, _ = http.NewRequest("GET", "/truck/1", nil)
+	req, _ = http.NewRequest("GET", "/api/v1/truck/1", nil)
 	response = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, response.Code) 
+	checkResponseCode(t, http.StatusNotFound, response.Code) 
 }
