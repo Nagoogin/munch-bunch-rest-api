@@ -1,17 +1,20 @@
 package main 
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"database/sql"
 	"os"
+	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/nagoogin/munch-bunch-rest-api/db"
 	// "github.com/dimiro1/health"
 	// "github.com/dimiro1/health/db"
 	// "github.com/dimiro1/health/url"
-	// "github.com/nagoogin/munch-bunch-rest-api/handler"
+	"github.com/nagoogin/munch-bunch-rest-api/handler"
 
 	_ "github.com/lib/pq"
 )
@@ -25,8 +28,9 @@ const (
 )
 
 type App struct {
-	Router 	*mux.Router
-	DB 		*sql.DB
+	Router 		*mux.Router
+	Subrouter 	*mux.Router
+	DB 			*sql.DB
 }
 
 func (a *App) Initialize(user, password, dbname string) {
@@ -40,10 +44,50 @@ func (a *App) Initialize(user, password, dbname string) {
 	}
 
 	a.Router = mux.NewRouter();
+	a.Subrouter = a.Router.PathPrefix("/api/v1").Subrouter()
+	a.InitializeRoutes()
+}
+
+func (a *App) InitializeRoutes() {
+	a.Router.Path("/api/v1").HandlerFunc(handler.StatusHandler)
+	a.Subrouter.Methods("GET").Path("/truck/{id:[0-9]+}").HandlerFunc(a.getTruck)
 }
 
 func (a *App) Run(addr string) {
-	log.Fatal(http.ListenAndServe(":8080", a.Router))
+	log.Fatal(http.ListenAndServe(addr, a.Router))
+}
+
+func respondWithError(w http.ResponseWriter, code int, message string) {
+	respondWithJSON(w, code, map[string]string{"error": message})
+}
+
+func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
+	response, _ := json.Marshal(payload)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	w.Write(response)
+}
+
+func (a *App) getTruck(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid truck ID")
+		return
+	}
+
+	t := db.Truck{ID: id}
+	if err := t.GetTruck(a.DB); err != nil {
+		if err == sql.ErrNoRows {
+			respondWithError(w, http.StatusNotFound, "Truck not found")
+		} else {
+			respondWithError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, t)
 }
 
 func main() {
