@@ -19,14 +19,6 @@ import (
 	_ "github.com/lib/pq"
 )
 
-// PostgreSQL DB info
-const (
-	HOST		= "localhost"
-	PORT		= 5432
-	USER		= "kevinnguyen"
-	DBNAME		= "munchbunch"
-)
-
 type App struct {
 	Router 		*mux.Router
 	Subrouter 	*mux.Router
@@ -34,8 +26,8 @@ type App struct {
 }
 
 func (a *App) Initialize(user, password, dbname string) {
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s dbname=%s sslmode=disable",
-    HOST, PORT, USER, DBNAME)
+	psqlInfo := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable",
+    user, password, dbname)
 
 	var err error
     a.DB, err = sql.Open("postgres", psqlInfo)  
