@@ -10,11 +10,11 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-	"github.com/nagoogin/munch-bunch-rest-api/db"
+	"github.com/Nagoogin/munch-bunch-rest-api/db"
 	// "github.com/dimiro1/health"
 	// "github.com/dimiro1/health/db"
 	// "github.com/dimiro1/health/url"
-	"github.com/nagoogin/munch-bunch-rest-api/handler"
+	"github.com/Nagoogin/munch-bunch-rest-api/handler"
 
 	_ "github.com/lib/pq"
 )
