@@ -1,4 +1,4 @@
-package db
+package database
 
 import (
 	"database/sql"
@@ -43,7 +43,7 @@ func GetTrucks(db *sql.DB, start, count int) ([]Truck, error) {
 }
 
 func (t *Truck) CreateTruck(db *sql.DB) error {
-	err := db.QueryRow("INSERT INTO trucks(name) VALUES($1) RETURNING id",
+	err := db.QueryRow("INSERT INTO trucks (name) VALUES($1) RETURNING id",
 		t.Name).Scan(&t.ID)
 
 	if err != nil {

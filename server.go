@@ -10,10 +10,10 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-	"github.com/Nagoogin/munch-bunch-rest-api/db"
-	// "github.com/dimiro1/health"
-	// "github.com/dimiro1/health/db"
-	// "github.com/dimiro1/health/url"
+	"github.com/dimiro1/health"
+	"github.com/dimiro1/health/db"
+	"github.com/dimiro1/health/url"
+	"github.com/Nagoogin/munch-bunch-rest-api/database"
 	"github.com/Nagoogin/munch-bunch-rest-api/handler"
 
 	_ "github.com/lib/pq"
@@ -23,6 +23,19 @@ type App struct {
 	Router 		*mux.Router
 	Subrouter 	*mux.Router
 	DB 			*sql.DB
+}
+
+const TABLE_CREATION_QUERY = `CREATE TABLE IF NOT EXISTS trucks
+(
+id SERIAL,
+name TEXT NOT NULL,
+CONSTRAINT trucks_pkey PRIMARY KEY (id)
+)`
+
+func (a *App) checkTableExists() {
+    if _, err := a.DB.Exec(TABLE_CREATION_QUERY); err != nil {
+        log.Fatal(err)
+    }
 }
 
 func (a *App) Initialize(user, password, dbname string) {
@@ -47,6 +60,13 @@ func (a *App) InitializeRoutes() {
 	a.Subrouter.Methods("POST").Path("/truck").HandlerFunc(a.createTruck)
 	a.Subrouter.Methods("PUT").Path("/truck/{id:[0-9]+}").HandlerFunc(a.updateTruck)
 	a.Subrouter.Methods("DELETE").Path("/truck/{id:[0-9]+}").HandlerFunc(a.deleteTruck)
+
+	psqlChecker := db.NewPostgreSQLChecker(a.DB)
+	healthHandler := health.NewHandler()
+	healthHandler.AddChecker("api", url.NewChecker("http://localhost:8080/api/v1"))
+	healthHandler.AddChecker("db", psqlChecker)
+	a.Subrouter.Path("/health").Handler(healthHandler)
+
 }
 
 func (a *App) Run(addr string) {
@@ -73,7 +93,7 @@ func (a *App) getTruck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	t := db.Truck{ID: id}
+	t := database.Truck{ID: id}
 	if err := t.GetTruck(a.DB); err != nil {
 		if err == sql.ErrNoRows {
 			respondWithError(w, http.StatusNotFound, "Truck not found")
@@ -87,6 +107,7 @@ func (a *App) getTruck(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) getTrucks(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Received GET request for /api/v1/truck/{id} endpoint")
 	count, _ := strconv.Atoi(r.FormValue("count"))
 	start, _ := strconv.Atoi(r.FormValue("start"))
 
@@ -98,7 +119,7 @@ func (a *App) getTrucks(w http.ResponseWriter, r *http.Request) {
 		start = 0
 	}
 
-	trucks, err := db.GetTrucks(a.DB, start, count)
+	trucks, err := database.GetTrucks(a.DB, start, count)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -108,7 +129,8 @@ func (a *App) getTrucks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) createTruck(w http.ResponseWriter, r *http.Request) {
-	var t db.Truck
+	fmt.Println("Received POST request for /api/v1/truck endpoint")
+	var t database.Truck
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&t); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
@@ -128,11 +150,11 @@ func (a *App) updateTruck(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid product ID")
+		respondWithError(w, http.StatusBadRequest, "Invalid truck ID")
 		return
 	}
 
-	var t db.Truck
+	var t database.Truck
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&t); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
@@ -157,7 +179,7 @@ func (a *App) deleteTruck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	t := db.Truck{ID: id}
+	t := database.Truck{ID: id}
 	if err := t.DeleteTruck(a.DB); err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -172,30 +194,6 @@ func main() {
         os.Getenv("APP_DB_USERNAME"),
         os.Getenv("APP_DB_PASSWORD"),
         os.Getenv("APP_DB_NAME"))
-
+    a.checkTableExists()
     a.Run(":8080")
-
-	// // Test connection to PSQL DB
-	// err = database.Ping()  
-	// if err != nil {  
-	//   log.Fatal(err)
-	// }
-	// fmt.Println("Successfully opened connection")
-
-	// psqlChecker := db.NewPostgreSQLChecker(database)
-
-	// r := mux.NewRouter()
-	// r.Path("/api/v1").HandlerFunc(handler.StatusHandler)
-
-	// s := r.PathPrefix("/api/v1").Subrouter()
-
-	// healthHandler := health.NewHandler()
-	// healthHandler.AddChecker("api", url.NewChecker("http://localhost:8080/api/v1"))
-	// healthHandler.AddChecker("db", psqlChecker)
-
-	// s.Methods("GET").Path("/trucks").HandlerFunc(handler.GetTrucks)
-	// s.Methods("GET").Path("/trucks/{name}").HandlerFunc(handler.GetTruck)
-	// s.Methods("DELETE").Path("/trucks/{name}").HandlerFunc(handler.DeleteTruck)
-
-	// s.Path("/health").Handler(healthHandler)
 }
