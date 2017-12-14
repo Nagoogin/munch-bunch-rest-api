@@ -13,12 +13,6 @@ import (
 
 var a App
 
-const TABLE_CREATION_QUERY = `CREATE TABLE IF NOT EXISTS trucks
-(
-id SERIAL,
-name TEXT NOT NULL,
-CONSTRAINT trucks_pkey PRIMARY KEY (id)
-)`
 
 func checkTableExists() {
     if _, err := a.DB.Exec(TABLE_CREATION_QUERY); err != nil {

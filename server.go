@@ -107,7 +107,6 @@ func (a *App) getTruck(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) getTrucks(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Received GET request for /api/v1/truck/{id} endpoint")
 	count, _ := strconv.Atoi(r.FormValue("count"))
 	start, _ := strconv.Atoi(r.FormValue("start"))
 
@@ -129,7 +128,6 @@ func (a *App) getTrucks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) createTruck(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Received POST request for /api/v1/truck endpoint")
 	var t database.Truck
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&t); err != nil {
