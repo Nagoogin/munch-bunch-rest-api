@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"log"
 	"os"
 	"net/http"
 	"net/http/httptest"
@@ -13,16 +12,14 @@ import (
 
 var a App
 
-
-func checkTableExists() {
-    if _, err := a.DB.Exec(TABLE_CREATION_QUERY); err != nil {
-        log.Fatal(err)
-    }
-}
-
-func clearTable() {
+func clearTableTrucks() {
     a.DB.Exec("DELETE FROM trucks")
     a.DB.Exec("ALTER SEQUENCE trucks_id_seq RESTART WITH 1")
+}
+
+func clearTableUsers() {
+	a.DB.Exec("DELETE FROM users")
+	a.DB.Exec("ALTER SEQUENCE users_id_seq RESTART WITH 1")
 }
 
 func executeRequest(req *http.Request) *httptest.ResponseRecorder {
@@ -35,6 +32,16 @@ func executeRequest(req *http.Request) *httptest.ResponseRecorder {
 func checkResponseCode(t *testing.T, expected, actual int) {
 	if expected != actual {
 		t.Errorf("Expected response code %d. Got %d\n", expected, actual)
+	}
+}
+
+func addUsers(count int) {
+	if count < 1 {
+		count = 1
+	}
+	for i := 0; i < count; i++ {
+		a.DB.Exec("INSERT INTO users(username, fname, lname, email) VALUES($1, $2, $3, $4)",
+			"User" + strconv.Itoa(i), "first-name", "last-name", "email@test.com")
 	}
 }
 
@@ -53,14 +60,125 @@ func TestMain(m *testing.M) {
 		os.Getenv("TEST_DB_USERNAME"),
 		os.Getenv("TEST_DB_PASSWORD"),
 		os.Getenv("TEST_DB_NAME"))
-	checkTableExists()
+	a.CheckTablesExist()
 	code := m.Run()
-	clearTable()
+	clearTableTrucks()
 	os.Exit(code)
 }
 
+// User endpoint tests
+
+func TestGetNonExistentUser(t *testing.T) {
+	clearTableUsers()
+
+	req, _ := http.NewRequest("GET", "/api/v1/user/1", nil)
+	response := executeRequest(req)
+
+	checkResponseCode(t, http.StatusNotFound, response.Code)
+
+	var m map[string]string
+	json.Unmarshal(response.Body.Bytes(), &m)
+	if m["error"] != "User not found" {
+		t.Errorf("Expected the 'error' key of the response to be set to 'User not found'. Got '%s'", m["error"])
+	}
+}
+
+func TestGetUser(t *testing.T) {
+	clearTableUsers()
+	addUsers(1)
+
+	req, _ := http.NewRequest("GET", "/api/v1/user/1", nil)
+	response := executeRequest(req)
+
+	checkResponseCode(t, http.StatusOK, response.Code)
+}
+
+func TestCreateUser(t *testing.T) {
+	clearTableUsers()
+
+	payload := []byte(`{"username":"User1","fname":"first-name","lname":"last-name","email":"email@test.com"}`)
+	req, _ := http.NewRequest("POST", "/api/v1/user", bytes.NewBuffer(payload))
+	response := executeRequest(req)
+
+	checkResponseCode(t, http.StatusCreated, response.Code)
+
+	var m map[string]interface{}
+	json.Unmarshal(response.Body.Bytes(), &m)
+
+	if m["username"] != "User1" {
+		t.Errorf("Expected username to be 'User1'. Got '%v'", m["username"])
+	}
+	if m["fname"] != "first-name" {
+		t.Errorf("Expected fname to be 'first-name'. Got '%v'", m["fname"])
+	}
+	if m["lname"] != "last-name" {
+		t.Errorf("Expected lname to be 'last-name'. Got '%v'", m["lname"])
+	}
+	if m["email"] != "email@test.com" {
+		t.Errorf("Expected email to be 'email@test.com'. Got '%v'", m["email"])
+	}
+	if m["id"] != 1.0 {
+		t.Errorf("Expected truck ID to be '1'. Got '%v'", m["id"])
+	}
+}
+
+func TestUpdateUser(t *testing.T) {
+	clearTableUsers()
+	addUsers(1)
+
+	req, _ := http.NewRequest("GET", "/api/v1/user/1", nil)
+	response := executeRequest(req)
+	var originalUser map[string]interface{}
+	json.Unmarshal(response.Body.Bytes(), &originalUser)
+
+	payload := []byte(`{"username":"Updated1","fname":"updated-first-name","lname":"updated-last-name","email":"updated.email@test.com"}`)
+
+	req, _ = http.NewRequest("PUT", "/api/v1/user/1", bytes.NewBuffer(payload))
+	response = executeRequest(req)
+
+	checkResponseCode(t, http.StatusOK, response.Code)
+
+	var m map[string]interface{}
+	json.Unmarshal(response.Body.Bytes(), &m)
+
+	if m["id"] != originalUser["id"] {
+		t.Errorf("Expected the id to remain the unchanged (%v). Got %v", originalUser["id"], m["id"])
+	}
+	if m["username"] == originalUser["username"] {
+		t.Errorf("Expected the username to change from '%v' to 'Updated1'. Got '%v'", originalUser["username"], m["username"])
+	}
+	if m["fname"] == originalUser["fname"] {
+		t.Errorf("Expected the fname to change from '%v' to 'updated-first-name'. Got '%v'", originalUser["fname"], m["fname"])
+	}
+	if m["lname"] == originalUser["lname"] {
+		t.Errorf("Expected the lname to change from '%v' to 'updated-last-name'. Got '%v'", originalUser["lname"], m["lname"])
+	}
+	if m["email"] == originalUser["email"] {
+		t.Errorf("Expected the email to change from '%v' to 'updated.email@test.com'. Got '%v'", originalUser["email"], m["email"])
+	}
+}
+
+func TestDeleteUser(t *testing.T) {
+	clearTableUsers()
+	addUsers(1)
+
+	req, _ := http.NewRequest("GET", "/api/v1/user/1", nil)
+	response := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, response.Code)
+
+	req, _ = http.NewRequest("DELETE", "/api/v1/user/1", nil)
+	response = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, response.Code)
+
+	req, _ = http.NewRequest("GET", "/api/v1/user/1", nil)
+	response = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, response.Code) 
+}
+
+// Truck endpoint tests
+
 func TestEmptyTable(t *testing.T) {
-	clearTable()
+	clearTableTrucks()
 
 	req, _ := http.NewRequest("GET", "/api/v1/trucks", nil)
 	response := executeRequest(req)
@@ -73,7 +191,7 @@ func TestEmptyTable(t *testing.T) {
 }
 
 func TestGetNonExistentTruck(t *testing.T) {
-	clearTable()
+	clearTableTrucks()
 
 	req, _ := http.NewRequest("GET", "/api/v1/truck/1", nil)
 	response := executeRequest(req)
@@ -88,7 +206,7 @@ func TestGetNonExistentTruck(t *testing.T) {
 }
 
 func TestGetTruck(t *testing.T) {
-	clearTable()
+	clearTableTrucks()
 	addTrucks(1)
 
 	req, _ := http.NewRequest("GET", "/api/v1/truck/1", nil)
@@ -98,7 +216,7 @@ func TestGetTruck(t *testing.T) {
 }
 
 func TestGetTrucks(t *testing.T) {
-	clearTable()
+	clearTableTrucks()
 	addTrucks(10)
 
 	req, _ := http.NewRequest("GET", "/api/v1/trucks", nil)
@@ -108,7 +226,7 @@ func TestGetTrucks(t *testing.T) {
 }
 
 func TestCreateTruck(t *testing.T) {
-	clearTable()
+	clearTableTrucks()
 
 	payload := []byte(`{"name":"test truck"}`)
 	req, _ := http.NewRequest("POST", "/api/v1/truck", bytes.NewBuffer(payload))
@@ -122,14 +240,13 @@ func TestCreateTruck(t *testing.T) {
 	if m["name"] != "test truck" {
 		t.Errorf("Expected truck name to be 'test truck'. Got '%v'", m["name"])
 	}
-
 	if m["id"] != 1.0 {
 		t.Errorf("Expected truck ID to be '1'. Got '%v'", m["id"])
 	}
 }
 
 func TestUpdateTruck(t *testing.T) {
-	clearTable()
+	clearTableTrucks()
 	addTrucks(1)
 
 	req, _ := http.NewRequest("GET", "/api/v1/truck/1", nil)
@@ -150,14 +267,13 @@ func TestUpdateTruck(t *testing.T) {
 	if m["id"] != originalTruck["id"] {
 		t.Errorf("Expected the id to remain the unchanged (%v). Got %v", originalTruck["id"], m["id"])
 	}
-
 	if m["name"] == originalTruck["name"] {
 		t.Errorf("Expected the name to change from '%v' to 'Updated truck 1'. Got '%v'", originalTruck["name"], m["name"])
 	}
 }
 
 func TestDeleteTruck(t *testing.T) {
-	clearTable()
+	clearTableTrucks()
 	addTrucks(1)
 
 	req, _ := http.NewRequest("GET", "/api/v1/truck/1", nil)
