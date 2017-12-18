@@ -288,6 +288,9 @@ func (a *App) deleteTruck(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	// certPath := "server.pem"
+	// keyPath := "server.key"
+
 	a := App{}
     a.Initialize(
         os.Getenv("APP_DB_USERNAME"),
