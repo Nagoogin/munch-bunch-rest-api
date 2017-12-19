@@ -102,4 +102,3 @@ func (t *Truck) DeleteTruck(db *sql.DB) error {
 
 	return err
 }
-

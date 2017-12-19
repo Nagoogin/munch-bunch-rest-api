@@ -76,12 +76,20 @@ func (a *App) InitializeRoutes() {
 	a.Subrouter.Methods("PUT").Path("/user/{id:[0-9]+}").HandlerFunc(a.updateUser)
 	a.Subrouter.Methods("DELETE").Path("/user/{id:[0-9]+}").HandlerFunc(a.deleteUser)
 
+	a.Subrouter.Methods("GET").Path("/user{id:[0-9]+}/orders").HandlerFunc(a.getOrdersForUser)
+
 	// Truck endpoints
 	a.Subrouter.Methods("GET").Path("/truck/{id:[0-9]+}").HandlerFunc(a.getTruck)
 	a.Subrouter.Methods("GET").Path("/trucks").HandlerFunc(a.getTrucks)
 	a.Subrouter.Methods("POST").Path("/truck").HandlerFunc(a.createTruck)
 	a.Subrouter.Methods("PUT").Path("/truck/{id:[0-9]+}").HandlerFunc(a.updateTruck)
 	a.Subrouter.Methods("DELETE").Path("/truck/{id:[0-9]+}").HandlerFunc(a.deleteTruck)
+
+	a.Subrouter.Methods("GET").Path("/truck/{id:[0-9]+}/orders").HandlerFunc(a.getOrdersForTruck)
+	a.Subrouter.Methods("POST").Path("/truck/{id:[0-9]+}/orders").HandlerFunc(a.createOrderForTruck)
+	a.Subrouter.Methods("PUT").Path("/truck/{id:[0-9]+}/order{id:[0-9]+}").HandlerFunc(a.updateOrderForTruck)
+	a.Subrouter.Methods("DELETE").Path("/truck/{id:[0-9]+}/order/{id:[0-9]+}").HandlerFunc(a.deleteOrderForTruck)
+
 
 	psqlChecker := db.NewPostgreSQLChecker(a.DB)
 	healthHandler := health.NewHandler()
@@ -285,6 +293,26 @@ func (a *App) deleteTruck(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondWithJSON(w, http.StatusOK, map[string]string{"result": "success"})
+}
+
+func (a *App) getOrdersForUser(w http.ResponseWriter, r *http.Request) {
+	// TODO
+}
+
+func (a *App) getOrdersForTruck(w http.ResponseWriter, r *http.Request) {
+	// TODO
+}
+
+func (a *App) createOrderForTruck(w http.ResponseWriter, r *http.Request) {
+	// TODO
+}
+
+func (a *App) updateOrderForTruck(w http.ResponseWriter, r *http.Request) {
+	// TODO
+}
+
+func (a *App) deleteOrderForTruck(w http.ResponseWriter, r *http.Request) {
+	// TODO
 }
 
 func main() {
