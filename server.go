@@ -8,7 +8,10 @@ import (
 	"database/sql"
 	"os"
 	"strconv"
+	"strings"
 
+	"github.com/dgrijalva/jwt-go"
+	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	"github.com/dimiro1/health"
 	"github.com/dimiro1/health/db"
@@ -23,6 +26,10 @@ type App struct {
 	Router 		*mux.Router
 	Subrouter 	*mux.Router
 	DB 			*sql.DB
+}
+
+type JwtToken struct {
+	Token string `json:"token"`
 }
 
 // TODO place contants in a constants.go file
@@ -70,25 +77,38 @@ func (a *App) Initialize(user, password, dbname string) {
 func (a *App) InitializeRoutes() {
 	a.Router.Path("/api/v1").HandlerFunc(handler.StatusHandler)
 
-	// User endpoints
-	a.Subrouter.Methods("GET").Path("/user/{id:[0-9]+}").HandlerFunc(a.getUser)
-	a.Subrouter.Methods("POST").Path("/user").HandlerFunc(a.createUser)
-	a.Subrouter.Methods("PUT").Path("/user/{id:[0-9]+}").HandlerFunc(a.updateUser)
-	a.Subrouter.Methods("DELETE").Path("/user/{id:[0-9]+}").HandlerFunc(a.deleteUser)
+	// Auth endpoints
+	a.Subrouter.Methods("POST").Path("/auth/register").HandlerFunc(a.Register)
+	a.Subrouter.Methods("PUT").Path("/auth/login").HandlerFunc(a.Login)
+	a.Subrouter.Methods("POST").Path("/auth/logout").HandlerFunc(a.Logout)
+	a.Subrouter.Methods("POST").Path("/auth/authenticate").HandlerFunc(a.CreateToken)
 
-	a.Subrouter.Methods("GET").Path("/user{id:[0-9]+}/orders").HandlerFunc(a.getOrdersForUser)
+	// User endpoints
+	a.Subrouter.Methods("GET").Path("/user/{id:[0-9]+}").HandlerFunc(a.GetUser)
+	a.Subrouter.Methods("POST").Path("/user").HandlerFunc(a.CreateUser)
+	a.Subrouter.Methods("PUT").Path("/user/{id:[0-9]+}").HandlerFunc(a.UpdateUser)
+	a.Subrouter.Methods("DELETE").Path("/user/{id:[0-9]+}").HandlerFunc(a.DeleteUser)
+
+	a.Subrouter.Methods("GET").Path("/user{id:[0-9]+}/orders").HandlerFunc(a.GetOrdersForUser)
 
 	// Truck endpoints
-	a.Subrouter.Methods("GET").Path("/truck/{id:[0-9]+}").HandlerFunc(a.getTruck)
-	a.Subrouter.Methods("GET").Path("/trucks").HandlerFunc(a.getTrucks)
-	a.Subrouter.Methods("POST").Path("/truck").HandlerFunc(a.createTruck)
-	a.Subrouter.Methods("PUT").Path("/truck/{id:[0-9]+}").HandlerFunc(a.updateTruck)
-	a.Subrouter.Methods("DELETE").Path("/truck/{id:[0-9]+}").HandlerFunc(a.deleteTruck)
+	a.Subrouter.Methods("GET").Path("/truck/{id:[0-9]+}").HandlerFunc(a.GetTruck)
+	a.Subrouter.Methods("GET").Path("/trucks").HandlerFunc(a.GetTrucks)
+	a.Subrouter.Methods("POST").Path("/truck").HandlerFunc(a.CreateTruck)
+	a.Subrouter.Methods("PUT").Path("/truck/{id:[0-9]+}").HandlerFunc(a.UpdateTruck)
+	a.Subrouter.Methods("DELETE").Path("/truck/{id:[0-9]+}").HandlerFunc(a.DeleteTruck)
 
-	a.Subrouter.Methods("GET").Path("/truck/{id:[0-9]+}/orders").HandlerFunc(a.getOrdersForTruck)
-	a.Subrouter.Methods("POST").Path("/truck/{id:[0-9]+}/orders").HandlerFunc(a.createOrderForTruck)
-	a.Subrouter.Methods("PUT").Path("/truck/{id:[0-9]+}/order{id:[0-9]+}").HandlerFunc(a.updateOrderForTruck)
-	a.Subrouter.Methods("DELETE").Path("/truck/{id:[0-9]+}/order/{id:[0-9]+}").HandlerFunc(a.deleteOrderForTruck)
+	// Truck endpoints
+	// a.Subrouter.Methods("GET").Path("/truck/{id:[0-9]+}").HandlerFunc(ValidateMiddleware(a.getTruck))
+	// a.Subrouter.Methods("GET").Path("/trucks").HandlerFunc(ValidateMiddleware(a.getTrucks))
+	// a.Subrouter.Methods("POST").Path("/truck").HandlerFunc(ValidateMiddleware(a.createTruck))
+	// a.Subrouter.Methods("PUT").Path("/truck/{id:[0-9]+}").HandlerFunc(ValidateMiddleware(a.updateTruck))
+	// a.Subrouter.Methods("DELETE").Path("/truck/{id:[0-9]+}").HandlerFunc(ValidateMiddleware(a.deleteTruck))
+
+	a.Subrouter.Methods("GET").Path("/truck/{id:[0-9]+}/orders").HandlerFunc(a.GetOrdersForTruck)
+	a.Subrouter.Methods("POST").Path("/truck/{id:[0-9]+}/orders").HandlerFunc(a.CreateOrderForTruck)
+	a.Subrouter.Methods("PUT").Path("/truck/{id:[0-9]+}/order{id:[0-9]+}").HandlerFunc(a.UpdateOrderForTruck)
+	a.Subrouter.Methods("DELETE").Path("/truck/{id:[0-9]+}/order/{id:[0-9]+}").HandlerFunc(a.DeleteOrderForTruck)
 
 
 	psqlChecker := db.NewPostgreSQLChecker(a.DB)
@@ -114,7 +134,79 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	w.Write(response)
 }
 
-func (a *App) getUser(w http.ResponseWriter, r *http.Request) {
+func (a *App) Register(w http.ResponseWriter, r *http.Request) {
+	// TODO
+
+	var u database.User
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&u); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+	defer r.Body.Close()
+
+}
+
+func (a *App) Login(w http.ResponseWriter, r *http.Request) {
+	// TODO
+}
+
+func (a *App) Logout(w http.ResponseWriter, r *http.Request) {
+	// TODO
+}
+
+func (a *App) CreateToken(w http.ResponseWriter, r *http.Request) {
+	var u database.User
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&u); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+	defer r.Body.Close()
+
+	// TODO: Add username and password validation
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims {
+		"username": u.Username,
+	})
+
+	tokenString, err := token.SignedString([]byte("Secret"))
+	if err != nil {
+		fmt.Println(err)
+	}
+	json.NewEncoder(w).Encode(JwtToken{Token: tokenString})
+}
+
+func ValidateMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authorizationHeader := r.Header.Get("authorization")
+		if authorizationHeader != "" {
+			bearerToken := strings.Split(authorizationHeader, " ")
+			if len(bearerToken) == 2 {
+                token, error := jwt.Parse(bearerToken[1], func(token *jwt.Token) (interface{}, error) {
+                    if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+                        return nil, fmt.Errorf("There was an error")
+                    }
+                    return []byte("secret"), nil
+                })
+                if error != nil {
+                    respondWithError(w, http.StatusBadRequest, error.Error())
+                    return
+                }
+                if token.Valid {
+                    context.Set(r, "decoded", token.Claims)
+                    next(w, r)
+                } else {
+                    respondWithError(w, http.StatusBadRequest, "Invalid authorization token")
+                }
+            }
+        } else {
+            respondWithError(w, http.StatusBadRequest, "An authorization header is required")
+        }
+	})
+}
+
+func (a *App) GetUser(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
@@ -135,7 +227,7 @@ func (a *App) getUser(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, u)
 }
 
-func (a *App) createUser(w http.ResponseWriter, r *http.Request) {
+func (a *App) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var u database.User
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&u); err != nil {
@@ -152,7 +244,7 @@ func (a *App) createUser(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusCreated, u)
 }
 
-func (a *App) updateUser(w http.ResponseWriter, r *http.Request) {
+func (a *App) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
@@ -177,7 +269,7 @@ func (a *App) updateUser(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, u)
 }
 
-func (a *App) deleteUser(w http.ResponseWriter, r *http.Request) {
+func (a *App) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
@@ -194,7 +286,7 @@ func (a *App) deleteUser(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, map[string]string{"result": "success"})
 }
 
-func (a *App) getTruck(w http.ResponseWriter, r *http.Request) {
+func (a *App) GetTruck(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
@@ -215,7 +307,7 @@ func (a *App) getTruck(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, t)
 }
 
-func (a *App) getTrucks(w http.ResponseWriter, r *http.Request) {
+func (a *App) GetTrucks(w http.ResponseWriter, r *http.Request) {
 	count, _ := strconv.Atoi(r.FormValue("count"))
 	start, _ := strconv.Atoi(r.FormValue("start"))
 
@@ -236,7 +328,7 @@ func (a *App) getTrucks(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, trucks)
 }
 
-func (a *App) createTruck(w http.ResponseWriter, r *http.Request) {
+func (a *App) CreateTruck(w http.ResponseWriter, r *http.Request) {
 	var t database.Truck
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&t); err != nil {
@@ -253,7 +345,7 @@ func (a *App) createTruck(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusCreated, t)
 }
 
-func (a *App) updateTruck(w http.ResponseWriter, r *http.Request) {
+func (a *App) UpdateTruck(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
@@ -278,7 +370,7 @@ func (a *App) updateTruck(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, t)
 }
 
-func (a *App) deleteTruck(w http.ResponseWriter, r *http.Request) {
+func (a *App) DeleteTruck(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
@@ -295,23 +387,23 @@ func (a *App) deleteTruck(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, map[string]string{"result": "success"})
 }
 
-func (a *App) getOrdersForUser(w http.ResponseWriter, r *http.Request) {
+func (a *App) GetOrdersForUser(w http.ResponseWriter, r *http.Request) {
 	// TODO
 }
 
-func (a *App) getOrdersForTruck(w http.ResponseWriter, r *http.Request) {
+func (a *App) GetOrdersForTruck(w http.ResponseWriter, r *http.Request) {
 	// TODO
 }
 
-func (a *App) createOrderForTruck(w http.ResponseWriter, r *http.Request) {
+func (a *App) CreateOrderForTruck(w http.ResponseWriter, r *http.Request) {
 	// TODO
 }
 
-func (a *App) updateOrderForTruck(w http.ResponseWriter, r *http.Request) {
+func (a *App) UpdateOrderForTruck(w http.ResponseWriter, r *http.Request) {
 	// TODO
 }
 
-func (a *App) deleteOrderForTruck(w http.ResponseWriter, r *http.Request) {
+func (a *App) DeleteOrderForTruck(w http.ResponseWriter, r *http.Request) {
 	// TODO
 }
 
