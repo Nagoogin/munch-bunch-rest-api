@@ -18,6 +18,7 @@ import (
 	"github.com/dimiro1/health/url"
 	"github.com/Nagoogin/munch-bunch-rest-api/database"
 	"github.com/Nagoogin/munch-bunch-rest-api/handler"
+	"github.com/Nagoogin/munch-bunch-rest-api/crypto"
 
 	_ "github.com/lib/pq"
 )
@@ -37,6 +38,7 @@ const USER_TABLE_CREATION_QUERY = `CREATE TABLE IF NOT EXISTS users
 (
 id SERIAL,
 username TEXT NOT NULL,
+hash TEXT NOT NULL,
 fname TEXT NOT NULL,
 lname TEXT NOT NULL,
 email TEXT NOT NULL,
@@ -79,7 +81,6 @@ func (a *App) InitializeRoutes() {
 
 	// Auth endpoints
 	a.Subrouter.Methods("POST").Path("/auth/register").HandlerFunc(a.Register)
-	a.Subrouter.Methods("PUT").Path("/auth/login").HandlerFunc(a.Login)
 	a.Subrouter.Methods("POST").Path("/auth/logout").HandlerFunc(a.Logout)
 	a.Subrouter.Methods("POST").Path("/auth/authenticate").HandlerFunc(a.CreateToken)
 
@@ -147,34 +148,49 @@ func (a *App) Register(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (a *App) Login(w http.ResponseWriter, r *http.Request) {
-	// TODO
-}
-
 func (a *App) Logout(w http.ResponseWriter, r *http.Request) {
 	// TODO
 }
 
+// Creates and returns a JWT token if user credentials match those stored in the database
 func (a *App) CreateToken(w http.ResponseWriter, r *http.Request) {
-	var u database.User
+
+	// Read in user credentials from request body
+	var userCred database.UserCredentials
 	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&u); err != nil {
+	if err := decoder.Decode(&userCred); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 	defer r.Body.Close()
 
-	// TODO: Add username and password validation
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims {
-		"username": u.Username,
-	})
-
-	tokenString, err := token.SignedString([]byte("Secret"))
-	if err != nil {
-		fmt.Println(err)
+	// Query user from database based on provided user credentials
+	u := database.User{Username: userCred.Username}
+	if err := u.GetUser(a.DB); err != nil {
+		if err == sql.ErrNoRows {
+			respondWithError(w, http.StatusNotFound, "User not found")
+		} else {
+			respondWithError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
 	}
-	json.NewEncoder(w).Encode(JwtToken{Token: tokenString})
+
+	// Compare stored hash with provided password from user credentials
+	if crypto.ComparePasswords(u.Hash, []byte(userCred.Password)) {
+
+		// If compare successful, create new JWT token
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims {
+			"username": userCred.Username,
+		})
+
+		tokenString, err := token.SignedString([]byte("Secret"))
+		if err != nil {
+			log.Println(err)
+		}
+		respondWithJSON(w, http.StatusOK, JwtToken{Token: tokenString})
+	}
+
+	respondWithError(w, http.StatusForbidden, "Invalid password")
 }
 
 func ValidateMiddleware(next http.HandlerFunc) http.HandlerFunc {
@@ -235,6 +251,9 @@ func (a *App) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
+
+	// Hash user password
+	u.Hash = crypto.HashAndSalt([]byte(u.Hash))
 
 	if err := u.CreateUser(a.DB); err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())

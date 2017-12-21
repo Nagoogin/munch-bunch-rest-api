@@ -4,9 +4,15 @@ import (
 	"database/sql"
 )
 
+type UserCredentials struct {
+	Username 	string 	`json:"username"`
+	Password	string	`json:"password"`
+}
+
 type User struct {
 	ID 			int 	`json:"id"`
 	Username 	string 	`json:"username"`
+	Hash		string	`json:"hash"`
 	Fname		string	`json:"fname"`
 	Lname		string	`json:"lname"`
 	Email		string	`json:"email"`
@@ -23,13 +29,18 @@ type Truck struct {
 }
 
 func (u *User) GetUser(db *sql.DB) error {
-	return db.QueryRow("SELECT username, fname, lname, email FROM users WHERE id=$1",
-		u.ID).Scan(&u.Username, &u.Fname, &u.Lname, &u.Email)
+	return db.QueryRow("SELECT username, hash, fname, lname, email FROM users WHERE id=$1",
+		u.ID).Scan(&u.Username, &u.Hash, &u.Fname, &u.Lname, &u.Email)
+}
+
+func (u *User) GetUserByUsername(db *sql.DB) error {
+	return db.QueryRow("SELECT username, hash, fname, lname, email FROM users WHERE username=$1",
+		u.Username).Scan(&u.Username, &u.Hash, &u.Fname, &u.Lname, &u.Email)
 }
 
 func (u *User) CreateUser(db *sql.DB) error {
-	err := db.QueryRow("INSERT INTO users (username, fname, lname, email) VALUES($1, $2, $3, $4) RETURNING id",
-		u.Username, u.Fname, u.Lname, u.Email).Scan(&u.ID)
+	err := db.QueryRow("INSERT INTO users (username, hash, fname, lname, email) VALUES($1, $2, $3, $4, $5) RETURNING id",
+		u.Username, u.Hash, u.Fname, u.Lname, u.Email).Scan(&u.ID)
 
 	if err != nil {
 		return err
@@ -39,8 +50,8 @@ func (u *User) CreateUser(db *sql.DB) error {
 }
 
 func (u *User) UpdateUser(db *sql.DB) error {
-	_, err := db.Exec("UPDATE users SET username=$1, fname=$2, lname=$3, email=$4 WHERE id=$5",
-		u.Username, u.Fname, u.Lname, u.Email, u.ID)
+	_, err := db.Exec("UPDATE users SET username=$1, hash=$2, fname=$3, lname=$4, email=$5 WHERE id=$6",
+		u.Username, u.Hash, u.Fname, u.Lname, u.Email, u.ID)
 
 	return err
 }
