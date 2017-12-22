@@ -166,7 +166,7 @@ func (a *App) CreateToken(w http.ResponseWriter, r *http.Request) {
 
 	// Query user from database based on provided user credentials
 	u := database.User{Username: userCred.Username}
-	if err := u.GetUser(a.DB); err != nil {
+	if err := u.GetUserByUsername(a.DB); err != nil {
 		if err == sql.ErrNoRows {
 			respondWithError(w, http.StatusNotFound, "User not found")
 		} else {
@@ -188,9 +188,9 @@ func (a *App) CreateToken(w http.ResponseWriter, r *http.Request) {
 			log.Println(err)
 		}
 		respondWithJSON(w, http.StatusOK, JwtToken{Token: tokenString})
+	} else {
+		respondWithError(w, http.StatusForbidden, "Invalid password")
 	}
-
-	respondWithError(w, http.StatusForbidden, "Invalid password")
 }
 
 func ValidateMiddleware(next http.HandlerFunc) http.HandlerFunc {

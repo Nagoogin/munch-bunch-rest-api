@@ -67,6 +67,25 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
+// Auth endpoint tests
+
+func TestAuthenticate(t *testing.T) {
+	clearTableUsers()
+	addUsers(1)
+
+	payload := []byte(`{"username":"User0","password":"password"}`)
+	req, _ := http.NewRequest("POST", "/api/v1/auth/authenticate", bytes.NewBuffer(payload))
+	response := executeRequest(req)
+
+	checkResponseCode(t, http.StatusOK, response.Code)
+	var m map[string]interface{}
+	json.Unmarshal(response.Body.Bytes(), &m)
+
+	if m["token"] == "" {
+		t.Errorf("Expected a JWT as the response, got '%s'", m["error"])
+	}
+}
+
 // User endpoint tests
 
 func TestGetNonExistentUser(t *testing.T) {
