@@ -328,8 +328,8 @@ func (a *App) GetTruck(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-
-	respondWithJSON(w, http.StatusOK, t)
+	rsp := database.JsonRsp{Code: http.StatusOK, Status: "success", Message: "N/A", Data: t}
+	respondWithJSON(w, http.StatusOK, rsp)
 }
 
 func (a *App) GetTrucks(w http.ResponseWriter, r *http.Request) {

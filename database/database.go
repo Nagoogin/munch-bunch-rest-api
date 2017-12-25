@@ -30,6 +30,13 @@ type Truck struct {
 	// Location struct	`json:"location"`
 }
 
+type JsonRsp struct {
+	Code 	int 		`json:"code"`
+	Status	string		`json:"status"`
+	Message	string		`json:"message"`
+	Data 	interface{}	`json:"data"`
+}
+
 func (u *User) GetUser(db *sql.DB) error {
 	return db.QueryRow("SELECT username, hash, fname, lname, email FROM users WHERE id=$1",
 		u.ID).Scan(&u.Username, &u.Hash, &u.Fname, &u.Lname, &u.Email)
