@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"bytes"
 	"encoding/json"
 	"os"
@@ -55,6 +56,20 @@ func addTrucks(count int) {
 	}
 }
 
+func getJWT() string {
+	clearTableUsers()
+	addUsers(1)
+
+	payload := []byte(`{"username":"User0","password":"password"}`)
+	req, _ := http.NewRequest("POST", "/api/v1/auth/authenticate", bytes.NewBuffer(payload))
+	response := executeRequest(req)
+
+	var m map[string]interface{}
+	json.Unmarshal(response.Body.Bytes(), &m)
+
+	return "Bearer " + m["token"].(string)
+}
+
 func TestMain(m *testing.M) {
 	a = App{}
 	a.Initialize(
@@ -84,6 +99,17 @@ func TestAuthenticate(t *testing.T) {
 	if m["token"] == "" {
 		t.Errorf("Expected a JWT as the response, got '%s'", m["error"])
 	}
+}
+
+func TestValidationMiddleware(t *testing.T) {
+	clearTableTrucks()
+	addTrucks(1)
+
+	jwt := getJWT()
+	req, _ := http.NewRequest("GET", "/api/v1/truck/1", nil)
+	req.Header.Set("Authorization", jwt)
+	response := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, response.Code)
 }
 
 // User endpoint tests
@@ -206,12 +232,15 @@ func TestDeleteUser(t *testing.T) {
 func TestEmptyTable(t *testing.T) {
 	clearTableTrucks()
 
+	jwt := getJWT()
 	req, _ := http.NewRequest("GET", "/api/v1/trucks", nil)
+	req.Header.Set("Authorization", jwt)
 	response := executeRequest(req)
 
 	checkResponseCode(t, http.StatusOK, response.Code)
 
 	if body := response.Body.String(); body != "[]" {
+		fmt.Println("body", body)
 		t.Errorf("Expected an empty array. Got %s", body)
 	}
 }
@@ -219,7 +248,9 @@ func TestEmptyTable(t *testing.T) {
 func TestGetNonExistentTruck(t *testing.T) {
 	clearTableTrucks()
 
+	jwt := getJWT()
 	req, _ := http.NewRequest("GET", "/api/v1/truck/1", nil)
+	req.Header.Set("Authorization", jwt)
 	response := executeRequest(req)
 
 	checkResponseCode(t, http.StatusNotFound, response.Code)
@@ -235,7 +266,9 @@ func TestGetTruck(t *testing.T) {
 	clearTableTrucks()
 	addTrucks(1)
 
+	jwt := getJWT()
 	req, _ := http.NewRequest("GET", "/api/v1/truck/1", nil)
+	req.Header.Set("Authorization", jwt)
 	response := executeRequest(req)
 
 	checkResponseCode(t, http.StatusOK, response.Code)
@@ -245,7 +278,9 @@ func TestGetTrucks(t *testing.T) {
 	clearTableTrucks()
 	addTrucks(10)
 
+	jwt := getJWT()
 	req, _ := http.NewRequest("GET", "/api/v1/trucks", nil)
+	req.Header.Set("Authorization", jwt)
 	response := executeRequest(req)
 
 	checkResponseCode(t, http.StatusOK, response.Code)
@@ -254,8 +289,11 @@ func TestGetTrucks(t *testing.T) {
 func TestCreateTruck(t *testing.T) {
 	clearTableTrucks()
 
+	jwt := getJWT()
+
 	payload := []byte(`{"name":"test truck"}`)
 	req, _ := http.NewRequest("POST", "/api/v1/truck", bytes.NewBuffer(payload))
+	req.Header.Set("Authorization", jwt)
 	response := executeRequest(req)
 
 	checkResponseCode(t, http.StatusCreated, response.Code)
@@ -275,7 +313,9 @@ func TestUpdateTruck(t *testing.T) {
 	clearTableTrucks()
 	addTrucks(1)
 
+	jwt := getJWT()
 	req, _ := http.NewRequest("GET", "/api/v1/truck/1", nil)
+	req.Header.Set("Authorization", jwt)
 	response := executeRequest(req)
 	var originalTruck map[string]interface{}
 	json.Unmarshal(response.Body.Bytes(), &originalTruck)
@@ -283,6 +323,7 @@ func TestUpdateTruck(t *testing.T) {
 	payload := []byte(`{"name":"Updated truck 1"}`)
 
 	req, _ = http.NewRequest("PUT", "/api/v1/truck/1", bytes.NewBuffer(payload))
+	req.Header.Set("Authorization", jwt)
 	response = executeRequest(req)
 
 	checkResponseCode(t, http.StatusOK, response.Code)
@@ -302,15 +343,19 @@ func TestDeleteTruck(t *testing.T) {
 	clearTableTrucks()
 	addTrucks(1)
 
+	jwt := getJWT()
 	req, _ := http.NewRequest("GET", "/api/v1/truck/1", nil)
+	req.Header.Set("Authorization", jwt)
 	response := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, response.Code)
 
 	req, _ = http.NewRequest("DELETE", "/api/v1/truck/1", nil)
+	req.Header.Set("Authorization", jwt)
 	response = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, response.Code)
 
 	req, _ = http.NewRequest("GET", "/api/v1/truck/1", nil)
+	req.Header.Set("Authorization", jwt)
 	response = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, response.Code) 
 }

@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	"github.com/dimiro1/health"
 	"github.com/dimiro1/health/db"
@@ -51,6 +50,8 @@ id SERIAL,
 name TEXT NOT NULL,
 CONSTRAINT trucks_pkey PRIMARY KEY (id)
 )`
+
+const JWT_SECRET_KEY = "wubbalubbadubdub"
 
 func (a *App) CheckTablesExist() {
     if _, err := a.DB.Exec(USER_TABLE_CREATION_QUERY); err != nil {
@@ -93,18 +94,18 @@ func (a *App) InitializeRoutes() {
 	a.Subrouter.Methods("GET").Path("/user{id:[0-9]+}/orders").HandlerFunc(a.GetOrdersForUser)
 
 	// Truck endpoints
-	a.Subrouter.Methods("GET").Path("/truck/{id:[0-9]+}").HandlerFunc(a.GetTruck)
-	a.Subrouter.Methods("GET").Path("/trucks").HandlerFunc(a.GetTrucks)
-	a.Subrouter.Methods("POST").Path("/truck").HandlerFunc(a.CreateTruck)
-	a.Subrouter.Methods("PUT").Path("/truck/{id:[0-9]+}").HandlerFunc(a.UpdateTruck)
-	a.Subrouter.Methods("DELETE").Path("/truck/{id:[0-9]+}").HandlerFunc(a.DeleteTruck)
+	// a.Subrouter.Methods("GET").Path("/truck/{id:[0-9]+}").HandlerFunc(a.GetTruck)
+	// a.Subrouter.Methods("GET").Path("/trucks").HandlerFunc(a.GetTrucks)
+	// a.Subrouter.Methods("POST").Path("/truck").HandlerFunc(a.CreateTruck)
+	// a.Subrouter.Methods("PUT").Path("/truck/{id:[0-9]+}").HandlerFunc(a.UpdateTruck)
+	// a.Subrouter.Methods("DELETE").Path("/truck/{id:[0-9]+}").HandlerFunc(a.DeleteTruck)
 
 	// Truck endpoints
-	// a.Subrouter.Methods("GET").Path("/truck/{id:[0-9]+}").HandlerFunc(ValidateMiddleware(a.getTruck))
-	// a.Subrouter.Methods("GET").Path("/trucks").HandlerFunc(ValidateMiddleware(a.getTrucks))
-	// a.Subrouter.Methods("POST").Path("/truck").HandlerFunc(ValidateMiddleware(a.createTruck))
-	// a.Subrouter.Methods("PUT").Path("/truck/{id:[0-9]+}").HandlerFunc(ValidateMiddleware(a.updateTruck))
-	// a.Subrouter.Methods("DELETE").Path("/truck/{id:[0-9]+}").HandlerFunc(ValidateMiddleware(a.deleteTruck))
+	a.Subrouter.Methods("GET").Path("/truck/{id:[0-9]+}").HandlerFunc(ValidateMiddleware(a.GetTruck))
+	a.Subrouter.Methods("GET").Path("/trucks").HandlerFunc(ValidateMiddleware(a.GetTrucks))
+	a.Subrouter.Methods("POST").Path("/truck").HandlerFunc(ValidateMiddleware(a.CreateTruck))
+	a.Subrouter.Methods("PUT").Path("/truck/{id:[0-9]+}").HandlerFunc(ValidateMiddleware(a.UpdateTruck))
+	a.Subrouter.Methods("DELETE").Path("/truck/{id:[0-9]+}").HandlerFunc(ValidateMiddleware(a.DeleteTruck))
 
 	a.Subrouter.Methods("GET").Path("/truck/{id:[0-9]+}/orders").HandlerFunc(a.GetOrdersForTruck)
 	a.Subrouter.Methods("POST").Path("/truck/{id:[0-9]+}/orders").HandlerFunc(a.CreateOrderForTruck)
@@ -183,7 +184,7 @@ func (a *App) CreateToken(w http.ResponseWriter, r *http.Request) {
 			"username": userCred.Username,
 		})
 
-		tokenString, err := token.SignedString([]byte("Secret"))
+		tokenString, err := token.SignedString([]byte(JWT_SECRET_KEY))
 		if err != nil {
 			log.Println(err)
 		}
@@ -193,9 +194,10 @@ func (a *App) CreateToken(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Validation middleware to wrap protected endpoint handler
 func ValidateMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authorizationHeader := r.Header.Get("authorization")
+		authorizationHeader := r.Header.Get("Authorization")
 		if authorizationHeader != "" {
 			bearerToken := strings.Split(authorizationHeader, " ")
 			if len(bearerToken) == 2 {
@@ -203,15 +205,17 @@ func ValidateMiddleware(next http.HandlerFunc) http.HandlerFunc {
                     if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
                         return nil, fmt.Errorf("There was an error")
                     }
-                    return []byte("secret"), nil
+                    return []byte(JWT_SECRET_KEY), nil
                 })
                 if error != nil {
                     respondWithError(w, http.StatusBadRequest, error.Error())
                     return
                 }
-                if token.Valid {
-                    context.Set(r, "decoded", token.Claims)
-                    next(w, r)
+                if _, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+                	// TODO: do something with claims
+                	// fmt.Println(claims["username"])
+                	// fmt.Println(bearerToken[1])
+                	next(w, r)
                 } else {
                     respondWithError(w, http.StatusBadRequest, "Invalid authorization token")
                 }
@@ -307,6 +311,8 @@ func (a *App) DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) GetTruck(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+
+	// Truck id must be an integer
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid truck ID")
