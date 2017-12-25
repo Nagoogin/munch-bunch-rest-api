@@ -30,15 +30,6 @@ type Truck struct {
 	// Location struct	`json:"location"`
 }
 
-type Location struct {
-	Latitude 	float	`json:"latitude"`
-	Longitude	float	`json:"longitude"`
-}
-
-type Menu struct {
-	Appetizers
-}
-
 func (u *User) GetUser(db *sql.DB) error {
 	return db.QueryRow("SELECT username, hash, fname, lname, email FROM users WHERE id=$1",
 		u.ID).Scan(&u.Username, &u.Hash, &u.Fname, &u.Lname, &u.Email)
