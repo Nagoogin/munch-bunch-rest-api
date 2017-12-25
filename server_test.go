@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"bytes"
 	"encoding/json"
 	"os"
@@ -67,7 +66,7 @@ func getJWT() string {
 	var m map[string]interface{}
 	json.Unmarshal(response.Body.Bytes(), &m)
 
-	return "Bearer " + m["token"].(string)
+	return "Bearer " + m["data"].(map[string]interface{})["token"].(string)
 }
 
 func TestMain(m *testing.M) {
@@ -122,10 +121,10 @@ func TestGetNonExistentUser(t *testing.T) {
 
 	checkResponseCode(t, http.StatusNotFound, response.Code)
 
-	var m map[string]string
+	var m map[string]interface{}
 	json.Unmarshal(response.Body.Bytes(), &m)
-	if m["error"] != "User not found" {
-		t.Errorf("Expected the 'error' key of the response to be set to 'User not found'. Got '%s'", m["error"])
+	if m["message"] != "User not found" {
+		t.Errorf("Expected the 'error' key of the response to be set to 'User not found'. Got '%s'", m["message"].(string))
 	}
 }
 
@@ -151,23 +150,23 @@ func TestCreateUser(t *testing.T) {
 	var m map[string]interface{}
 	json.Unmarshal(response.Body.Bytes(), &m)
 
-	if m["username"] != "User1" {
-		t.Errorf("Expected username to be 'User1'. Got '%v'", m["username"])
+	if m["data"].(map[string]interface{})["username"] != "User1" {
+		t.Errorf("Expected username to be 'User1'. Got '%v'", m["data"].(map[string]interface{})["username"])
 	}
-	if !crypto.ComparePasswords(m["hash"].(string), []byte("password")) {
+	if !crypto.ComparePasswords(m["data"].(map[string]interface{})["hash"].(string), []byte("password")) {
 		t.Errorf("Unexpected password")
 	}
-	if m["fname"] != "first-name" {
-		t.Errorf("Expected fname to be 'first-name'. Got '%v'", m["fname"])
+	if m["data"].(map[string]interface{})["fname"] != "first-name" {
+		t.Errorf("Expected fname to be 'first-name'. Got '%v'", m["data"].(map[string]interface{})["fname"])
 	}
-	if m["lname"] != "last-name" {
-		t.Errorf("Expected lname to be 'last-name'. Got '%v'", m["lname"])
+	if m["data"].(map[string]interface{})["lname"] != "last-name" {
+		t.Errorf("Expected lname to be 'last-name'. Got '%v'", m["data"].(map[string]interface{})["lname"])
 	}
-	if m["email"] != "email@test.com" {
-		t.Errorf("Expected email to be 'email@test.com'. Got '%v'", m["email"])
+	if m["data"].(map[string]interface{})["email"] != "email@test.com" {
+		t.Errorf("Expected email to be 'email@test.com'. Got '%v'", m["data"].(map[string]interface{})["email"])
 	}
-	if m["id"] != 1.0 {
-		t.Errorf("Expected truck ID to be '1'. Got '%v'", m["id"])
+	if m["data"].(map[string]interface{})["id"] != 1.0 {
+		t.Errorf("Expected truck ID to be '1'. Got '%v'", m["data"].(map[string]interface{})["id"])
 	}
 }
 
@@ -190,23 +189,23 @@ func TestUpdateUser(t *testing.T) {
 	var m map[string]interface{}
 	json.Unmarshal(response.Body.Bytes(), &m)
 
-	if m["id"] != originalUser["id"] {
-		t.Errorf("Expected the id to remain the unchanged (%v). Got %v", originalUser["id"], m["id"])
+	if m["data"].(map[string]interface{})["id"] != originalUser["data"].(map[string]interface{})["id"] {
+		t.Errorf("Expected the id to remain the unchanged (%v). Got %v", originalUser["data"].(map[string]interface{})["id"], m["data"].(map[string]interface{})["id"])
 	}
-	if m["hash"] == originalUser["hash"] {
-		t.Errorf("Expected hash to change from '%v' to '%v'. Got '%v'", originalUser["hash"], crypto.HashAndSalt([]byte("updated-password")), m["hash"])
+	if m["data"].(map[string]interface{})["hash"] == originalUser["data"].(map[string]interface{})["hash"] {
+		t.Errorf("Expected hash to change from '%v' to '%v'. Got '%v'", originalUser["data"].(map[string]interface{})["hash"], crypto.HashAndSalt([]byte("updated-password")), m["data"].(map[string]interface{})["hash"])
 	}
-	if m["username"] == originalUser["username"] {
-		t.Errorf("Expected the username to change from '%v' to 'Updated1'. Got '%v'", originalUser["username"], m["username"])
+	if m["data"].(map[string]interface{})["username"] == originalUser["data"].(map[string]interface{})["username"] {
+		t.Errorf("Expected the username to change from '%v' to 'Updated1'. Got '%v'", originalUser["data"].(map[string]interface{})["username"], m["data"].(map[string]interface{})["username"])
 	}
-	if m["fname"] == originalUser["fname"] {
-		t.Errorf("Expected the fname to change from '%v' to 'updated-first-name'. Got '%v'", originalUser["fname"], m["fname"])
+	if m["data"].(map[string]interface{})["fname"] == originalUser["data"].(map[string]interface{})["fname"] {
+		t.Errorf("Expected the fname to change from '%v' to 'updated-first-name'. Got '%v'", originalUser["data"].(map[string]interface{})["fname"], m["data"].(map[string]interface{})["fname"])
 	}
-	if m["lname"] == originalUser["lname"] {
-		t.Errorf("Expected the lname to change from '%v' to 'updated-last-name'. Got '%v'", originalUser["lname"], m["lname"])
+	if m["data"].(map[string]interface{})["lname"] == originalUser["data"].(map[string]interface{})["lname"] {
+		t.Errorf("Expected the lname to change from '%v' to 'updated-last-name'. Got '%v'", originalUser["data"].(map[string]interface{})["lname"], m["data"].(map[string]interface{})["lname"])
 	}
-	if m["email"] == originalUser["email"] {
-		t.Errorf("Expected the email to change from '%v' to 'updated.email@test.com'. Got '%v'", originalUser["email"], m["email"])
+	if m["data"].(map[string]interface{})["email"] == originalUser["data"].(map[string]interface{})["email"] {
+		t.Errorf("Expected the email to change from '%v' to 'updated.email@test.com'. Got '%v'", originalUser["data"].(map[string]interface{})["email"], m["data"].(map[string]interface{})["email"])
 	}
 }
 
@@ -239,9 +238,10 @@ func TestEmptyTable(t *testing.T) {
 
 	checkResponseCode(t, http.StatusOK, response.Code)
 
-	if body := response.Body.String(); body != "[]" {
-		fmt.Println("body", body)
-		t.Errorf("Expected an empty array. Got %s", body)
+	var m map[string]interface{}
+	json.Unmarshal(response.Body.Bytes(), &m)
+	if len(m["data"].([]interface{})) > 0 {
+		t.Errorf("Expected an empty array. Got %s", m["data"])
 	}
 }
 
@@ -255,10 +255,10 @@ func TestGetNonExistentTruck(t *testing.T) {
 
 	checkResponseCode(t, http.StatusNotFound, response.Code)
 
-	var m map[string]string
+	var m map[string]interface{}
 	json.Unmarshal(response.Body.Bytes(), &m)
-	if m["error"] != "Truck not found" {
-		t.Errorf("Expected the 'error' key of the response to be set to 'Truck not found'. Got '%s'", m["error"])
+	if m["message"].(string) != "Truck not found" {
+		t.Errorf("Expected the 'error' key of the response to be set to 'Truck not found'. Got '%s'", m["message"].(string))
 	}
 }
 
@@ -301,11 +301,11 @@ func TestCreateTruck(t *testing.T) {
 	var m map[string]interface{}
 	json.Unmarshal(response.Body.Bytes(), &m)
 
-	if m["name"] != "test truck" {
-		t.Errorf("Expected truck name to be 'test truck'. Got '%v'", m["name"])
+	if m["data"].(map[string]interface{})["name"] != "test truck" {
+		t.Errorf("Expected truck name to be 'test truck'. Got '%v'", m["data"].(map[string]interface{})["name"])
 	}
-	if m["id"] != 1.0 {
-		t.Errorf("Expected truck ID to be '1'. Got '%v'", m["id"])
+	if m["data"].(map[string]interface{})["id"] != 1.0 {
+		t.Errorf("Expected truck ID to be '1'. Got '%v'", m["data"].(map[string]interface{})["id"])
 	}
 }
 
@@ -331,11 +331,11 @@ func TestUpdateTruck(t *testing.T) {
 	var m map[string]interface{}
 	json.Unmarshal(response.Body.Bytes(), &m)
 
-	if m["id"] != originalTruck["id"] {
-		t.Errorf("Expected the id to remain the unchanged (%v). Got %v", originalTruck["id"], m["id"])
+	if m["data"].(map[string]interface{})["id"] != originalTruck["data"].(map[string]interface{})["id"] {
+		t.Errorf("Expected the id to remain the unchanged (%v). Got %v", originalTruck["data"].(map[string]interface{})["id"], m["data"].(map[string]interface{})["id"])
 	}
-	if m["name"] == originalTruck["name"] {
-		t.Errorf("Expected the name to change from '%v' to 'Updated truck 1'. Got '%v'", originalTruck["name"], m["name"])
+	if m["data"].(map[string]interface{})["name"] == originalTruck["data"].(map[string]interface{})["name"] {
+		t.Errorf("Expected the name to change from '%v' to 'Updated truck 1'. Got '%v'", originalTruck["data"].(map[string]interface{})["name"], m["data"].(map[string]interface{})["name"])
 	}
 }
 
