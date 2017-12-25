@@ -53,6 +53,10 @@ CONSTRAINT trucks_pkey PRIMARY KEY (id)
 
 const JWT_SECRET_KEY = "wubbalubbadubdub"
 
+const ERROR = "error"
+const SUCCESS = "success"
+const NA = "N/A"
+
 func (a *App) CheckTablesExist() {
     if _, err := a.DB.Exec(USER_TABLE_CREATION_QUERY); err != nil {
         log.Fatal(err)
@@ -124,12 +128,13 @@ func (a *App) Run(addr string) {
 	log.Fatal(http.ListenAndServe(addr, a.Router))
 }
 
-func respondWithError(w http.ResponseWriter, code int, message string) {
-	respondWithJSON(w, code, map[string]string{"error": message})
+func respondWithError(w http.ResponseWriter, code int, status string, message string) {
+	respondWithJSON(w, code, status, message, "")
 }
 
-func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
-	response, _ := json.Marshal(payload)
+func respondWithJSON(w http.ResponseWriter, code int, status string, message string, data interface{}) {
+	responseObject := database.JsonRsp{Code: code, Status: status, Message: message, Data: data}
+	response, _ := json.Marshal(responseObject)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
@@ -142,7 +147,7 @@ func (a *App) Register(w http.ResponseWriter, r *http.Request) {
 	var u database.User
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&u); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		respondWithError(w, http.StatusBadRequest, ERROR, "Invalid request payload")
 		return
 	}
 	defer r.Body.Close()
@@ -160,7 +165,7 @@ func (a *App) CreateToken(w http.ResponseWriter, r *http.Request) {
 	var userCred database.UserCredentials
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&userCred); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		respondWithError(w, http.StatusBadRequest, ERROR, "Invalid request payload")
 		return
 	}
 	defer r.Body.Close()
@@ -169,9 +174,9 @@ func (a *App) CreateToken(w http.ResponseWriter, r *http.Request) {
 	u := database.User{Username: userCred.Username}
 	if err := u.GetUserByUsername(a.DB); err != nil {
 		if err == sql.ErrNoRows {
-			respondWithError(w, http.StatusNotFound, "User not found")
+			respondWithError(w, http.StatusNotFound, ERROR, "User not found")
 		} else {
-			respondWithError(w, http.StatusInternalServerError, err.Error())
+			respondWithError(w, http.StatusInternalServerError, ERROR, err.Error())
 		}
 		return
 	}
@@ -188,9 +193,9 @@ func (a *App) CreateToken(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Println(err)
 		}
-		respondWithJSON(w, http.StatusOK, JwtToken{Token: tokenString})
+		respondWithJSON(w, http.StatusOK, SUCCESS, NA, JwtToken{Token: tokenString})
 	} else {
-		respondWithError(w, http.StatusForbidden, "Invalid password")
+		respondWithError(w, http.StatusForbidden, ERROR, "Invalid password")
 	}
 }
 
@@ -208,7 +213,7 @@ func ValidateMiddleware(next http.HandlerFunc) http.HandlerFunc {
                     return []byte(JWT_SECRET_KEY), nil
                 })
                 if error != nil {
-                    respondWithError(w, http.StatusBadRequest, error.Error())
+                    respondWithError(w, http.StatusBadRequest, ERROR, error.Error())
                     return
                 }
                 if _, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
@@ -217,11 +222,11 @@ func ValidateMiddleware(next http.HandlerFunc) http.HandlerFunc {
                 	// fmt.Println(bearerToken[1])
                 	next(w, r)
                 } else {
-                    respondWithError(w, http.StatusBadRequest, "Invalid authorization token")
+                    respondWithError(w, http.StatusBadRequest, ERROR, "Invalid authorization token")
                 }
             }
         } else {
-            respondWithError(w, http.StatusBadRequest, "An authorization header is required")
+            respondWithError(w, http.StatusBadRequest, ERROR, "An authorization header is required")
         }
 	})
 }
@@ -230,28 +235,28 @@ func (a *App) GetUser(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
+		respondWithError(w, http.StatusBadRequest, ERROR, "Invalid user ID")
 		return
 	}
 
 	u := database.User{ID: id}
 	if err := u.GetUser(a.DB); err != nil {
 		if err == sql.ErrNoRows {
-			respondWithError(w, http.StatusNotFound, "User not found")
+			respondWithError(w, http.StatusNotFound, ERROR, "User not found")
 		} else {
-			respondWithError(w, http.StatusInternalServerError, err.Error())
+			respondWithError(w, http.StatusInternalServerError, ERROR, err.Error())
 		}
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, u)
+	respondWithJSON(w, http.StatusOK, SUCCESS, NA, u)
 }
 
 func (a *App) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var u database.User
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&u); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		respondWithError(w, http.StatusBadRequest, ERROR, "Invalid request payload")
 		return
 	}
 	defer r.Body.Close()
@@ -260,53 +265,53 @@ func (a *App) CreateUser(w http.ResponseWriter, r *http.Request) {
 	u.Hash = crypto.HashAndSalt([]byte(u.Hash))
 
 	if err := u.CreateUser(a.DB); err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		respondWithError(w, http.StatusInternalServerError, ERROR, err.Error())
 		return
 	}
 
-	respondWithJSON(w, http.StatusCreated, u)
+	respondWithJSON(w, http.StatusCreated, SUCCESS, NA, u)
 }
 
 func (a *App) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
+		respondWithError(w, http.StatusBadRequest, ERROR, "Invalid user ID")
 		return
 	}
 
 	var u database.User
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&u); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		respondWithError(w, http.StatusBadRequest, ERROR, "Invalid request payload")
 		return
 	}
 	defer r.Body.Close()
 	
 	u.ID = id
 	if err := u.UpdateUser(a.DB); err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		respondWithError(w, http.StatusInternalServerError, ERROR, err.Error())
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, u)
+	respondWithJSON(w, http.StatusOK, SUCCESS, NA, u)
 }
 
 func (a *App) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
+		respondWithError(w, http.StatusBadRequest, ERROR, "Invalid user ID")
 		return
 	}
 
 	u := database.User{ID: id}
 	if err := u.DeleteUser(a.DB); err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		respondWithError(w, http.StatusInternalServerError, ERROR, err.Error())
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, map[string]string{"result": "success"})
+	respondWithJSON(w, http.StatusOK, SUCCESS, "Successfully deleted user with id " + string(id), "")
 }
 
 func (a *App) GetTruck(w http.ResponseWriter, r *http.Request) {
@@ -315,21 +320,20 @@ func (a *App) GetTruck(w http.ResponseWriter, r *http.Request) {
 	// Truck id must be an integer
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid truck ID")
+		respondWithError(w, http.StatusBadRequest, ERROR, "Invalid truck ID")
 		return
 	}
 
 	t := database.Truck{ID: id}
 	if err := t.GetTruck(a.DB); err != nil {
 		if err == sql.ErrNoRows {
-			respondWithError(w, http.StatusNotFound, "Truck not found")
+			respondWithError(w, http.StatusNotFound, ERROR, "Truck not found")
 		} else {
-			respondWithError(w, http.StatusInternalServerError, err.Error())
+			respondWithError(w, http.StatusInternalServerError, ERROR, err.Error())
 		}
 		return
 	}
-	rsp := database.JsonRsp{Code: http.StatusOK, Status: "success", Message: "N/A", Data: t}
-	respondWithJSON(w, http.StatusOK, rsp)
+	respondWithJSON(w, http.StatusOK, SUCCESS, NA, t)
 }
 
 func (a *App) GetTrucks(w http.ResponseWriter, r *http.Request) {
@@ -346,70 +350,70 @@ func (a *App) GetTrucks(w http.ResponseWriter, r *http.Request) {
 
 	trucks, err := database.GetTrucks(a.DB, start, count)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		respondWithError(w, http.StatusInternalServerError, ERROR, err.Error())
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, trucks)
+	respondWithJSON(w, http.StatusOK, SUCCESS, NA, trucks)
 }
 
 func (a *App) CreateTruck(w http.ResponseWriter, r *http.Request) {
 	var t database.Truck
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&t); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		respondWithError(w, http.StatusBadRequest, ERROR, "Invalid request payload")
 		return
 	}
 	defer r.Body.Close()
 
 	if err := t.CreateTruck(a.DB); err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		respondWithError(w, http.StatusInternalServerError, ERROR, err.Error())
 		return
 	}
 
-	respondWithJSON(w, http.StatusCreated, t)
+	respondWithJSON(w, http.StatusCreated, SUCCESS, NA, t)
 }
 
 func (a *App) UpdateTruck(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid truck ID")
+		respondWithError(w, http.StatusBadRequest, ERROR, "Invalid truck ID")
 		return
 	}
 
 	var t database.Truck
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&t); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		respondWithError(w, http.StatusBadRequest, ERROR, "Invalid request payload")
 		return
 	}
 	defer r.Body.Close()
 	
 	t.ID = id
 	if err := t.UpdateTruck(a.DB); err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		respondWithError(w, http.StatusInternalServerError, ERROR, err.Error())
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, t)
+	respondWithJSON(w, http.StatusOK, SUCCESS, NA, t)
 }
 
 func (a *App) DeleteTruck(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid truck ID")
+		respondWithError(w, http.StatusBadRequest, ERROR, "Invalid truck ID")
 		return
 	}
 
 	t := database.Truck{ID: id}
 	if err := t.DeleteTruck(a.DB); err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		respondWithError(w, http.StatusInternalServerError, ERROR, err.Error())
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, map[string]string{"result": "success"})
+	respondWithJSON(w, http.StatusOK, SUCCESS, "Successfully deleted truck with id " + string(id), "")
 }
 
 func (a *App) GetOrdersForUser(w http.ResponseWriter, r *http.Request) {
