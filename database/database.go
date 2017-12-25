@@ -26,6 +26,17 @@ type Truck struct {
 	// City	string 	`json:"city"`
 	// State	string	`json:"state"`
 	// Zip		string	`json:"zip"`
+	// Locate	bool	`json:"locate"`
+	// Location struct	`json:"location"`
+}
+
+type Location struct {
+	Latitude 	float	`json:"latitude"`
+	Longitude	float	`json:"longitude"`
+}
+
+type Menu struct {
+	Appetizers
 }
 
 func (u *User) GetUser(db *sql.DB) error {
