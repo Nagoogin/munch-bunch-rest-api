@@ -8,6 +8,7 @@ hash TEXT NOT NULL,
 fname TEXT NOT NULL,
 lname TEXT NOT NULL,
 email TEXT NOT NULL,
+hasTruck BOOLEAN NOT NULL,
 CONSTRAINT users_pkey PRIMARY KEY (id)
 )`
 

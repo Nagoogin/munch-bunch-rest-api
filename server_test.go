@@ -41,8 +41,8 @@ func addUsers(count int) {
 		count = 1
 	}
 	for i := 0; i < count; i++ {
-		a.DB.Exec("INSERT INTO users(username, hash, fname, lname, email) VALUES($1, $2, $3, $4, $5)",
-			"User" + strconv.Itoa(i), crypto.HashAndSalt([]byte("password")), "first-name", "last-name", "email@test.com")
+		a.DB.Exec("INSERT INTO users(username, hash, fname, lname, email, hasTruck) VALUES($1, $2, $3, $4, $5, $6)",
+			"User" + strconv.Itoa(i), crypto.HashAndSalt([]byte("password")), "first-name", "last-name", "email@test.com", false)
 	}
 }
 

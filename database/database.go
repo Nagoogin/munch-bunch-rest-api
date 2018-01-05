@@ -16,6 +16,7 @@ type User struct {
 	Fname		string	`json:"fname"`
 	Lname		string	`json:"lname"`
 	Email		string	`json:"email"`
+	HasTruck	bool	`json:"hasTruck"`
 }
 
 type Truck struct {
@@ -38,18 +39,18 @@ type JsonRsp struct {
 }
 
 func (u *User) GetUser(db *sql.DB) error {
-	return db.QueryRow("SELECT username, hash, fname, lname, email FROM users WHERE id=$1",
-		u.ID).Scan(&u.Username, &u.Hash, &u.Fname, &u.Lname, &u.Email)
+	return db.QueryRow("SELECT username, hash, fname, lname, email, hasTruck FROM users WHERE id=$1",
+		u.ID).Scan(&u.Username, &u.Hash, &u.Fname, &u.Lname, &u.Email, &u.HasTruck)
 }
 
 func (u *User) GetUserByUsername(db *sql.DB) error {
-	return db.QueryRow("SELECT username, hash, fname, lname, email FROM users WHERE username=$1",
-		u.Username).Scan(&u.Username, &u.Hash, &u.Fname, &u.Lname, &u.Email)
+	return db.QueryRow("SELECT username, hash, fname, lname, email, hasTruck FROM users WHERE username=$1",
+		u.Username).Scan(&u.Username, &u.Hash, &u.Fname, &u.Lname, &u.Email, &u.HasTruck)
 }
 
 func (u *User) CreateUser(db *sql.DB) error {
-	err := db.QueryRow("INSERT INTO users (username, hash, fname, lname, email) VALUES($1, $2, $3, $4, $5) RETURNING id",
-		u.Username, u.Hash, u.Fname, u.Lname, u.Email).Scan(&u.ID)
+	err := db.QueryRow("INSERT INTO users (username, hash, fname, lname, email, hasTruck) VALUES($1, $2, $3, $4, $5, $6) RETURNING id",
+		u.Username, u.Hash, u.Fname, u.Lname, u.Email, u.HasTruck).Scan(&u.ID)
 
 	if err != nil {
 		return err
@@ -59,8 +60,8 @@ func (u *User) CreateUser(db *sql.DB) error {
 }
 
 func (u *User) UpdateUser(db *sql.DB) error {
-	_, err := db.Exec("UPDATE users SET username=$1, hash=$2, fname=$3, lname=$4, email=$5 WHERE id=$6",
-		u.Username, u.Hash, u.Fname, u.Lname, u.Email, u.ID)
+	_, err := db.Exec("UPDATE users SET username=$1, hash=$2, fname=$3, lname=$4, email=$5, hasTruck=$6 WHERE id=$7",
+		u.Username, u.Hash, u.Fname, u.Lname, u.Email, u.HasTruck, u.ID)
 
 	return err
 }
