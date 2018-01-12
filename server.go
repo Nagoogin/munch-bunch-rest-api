@@ -43,6 +43,7 @@ func (a *App) CheckTablesExist() {
 }
 
 func (a *App) Initialize(user, password, dbname string) {
+	fmt.Println("In Initialize()")
 	psqlInfo := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable",
     user, password, dbname)
 
@@ -55,6 +56,7 @@ func (a *App) Initialize(user, password, dbname string) {
 	a.Router = mux.NewRouter();
 	a.Subrouter = a.Router.PathPrefix("/api/v1").Subrouter()
 	a.InitializeRoutes()
+	fmt.Println("Done with Initialize()")
 }
 
 func (a *App) InitializeRoutes() {
@@ -72,13 +74,6 @@ func (a *App) InitializeRoutes() {
 	a.Subrouter.Methods("DELETE").Path("/user/{id:[0-9]+}").HandlerFunc(a.DeleteUser)
 
 	a.Subrouter.Methods("GET").Path("/user{id:[0-9]+}/orders").HandlerFunc(a.GetOrdersForUser)
-
-	// Truck endpoints
-	// a.Subrouter.Methods("GET").Path("/truck/{id:[0-9]+}").HandlerFunc(a.GetTruck)
-	// a.Subrouter.Methods("GET").Path("/trucks").HandlerFunc(a.GetTrucks)
-	// a.Subrouter.Methods("POST").Path("/truck").HandlerFunc(a.CreateTruck)
-	// a.Subrouter.Methods("PUT").Path("/truck/{id:[0-9]+}").HandlerFunc(a.UpdateTruck)
-	// a.Subrouter.Methods("DELETE").Path("/truck/{id:[0-9]+}").HandlerFunc(a.DeleteTruck)
 
 	// Truck endpoints
 	a.Subrouter.Methods("GET").Path("/truck/{id:[0-9]+}").HandlerFunc(ValidateMiddleware(a.GetTruck))
@@ -419,7 +414,7 @@ func main() {
 	a := App{}
     a.Initialize(
         os.Getenv("APP_DB_USERNAME"),
-        os.Getenv("APP_DB_PASSWORD"),
+        os.Getenv("APP_DB_PASSWORD"), /* munchbunch */
         os.Getenv("APP_DB_NAME"))
     a.CheckTablesExist()
     a.Run(":8080")
